@@ -2,7 +2,11 @@
   "name": "react-native-peerjs",
   "version": "1.0.0",
   "description": "react-native-webrtc + peerjs",
-  "keywords": ["webrtc", "react native", "peerjs"],
+  "keywords": [
+    "webrtc",
+    "react native",
+    "peerjs"
+  ],
   "repository": "https://github.com/Zemke/react-native-peerjs",
   "author": "Zemke <florian@zemke.io>",
   "license": "MIT",
