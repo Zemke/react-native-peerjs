@@ -2,6 +2,7 @@
 
 exec 2>&1
 
+rm -rf dist/ peerjs/
 git clone https://github.com/peers/peerjs peerjs
 cd peerjs
 git apply ../decoupling.diff
