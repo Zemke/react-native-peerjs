@@ -1,35 +1,84 @@
 diff --git a/lib/dataconnection.ts b/lib/dataconnection.ts
-index ab58d6c..dfbf3b2 100644
+index aec3c05..f0ca925 100644
 --- a/lib/dataconnection.ts
 +++ b/lib/dataconnection.ts
-@@ -56,7 +56,7 @@ export class DataConnection extends BaseConnection {
+@@ -58,7 +58,7 @@ export class DataConnection extends BaseConnection implements IDataConnection {
        this.options.connectionId || DataConnection.ID_PREFIX + util.randomToken();
- 
+
      this.label = this.options.label || this.connectionId;
 -    this.serialization = this.options.serialization || SerializationType.Binary;
 +    this.serialization = this.options.serialization || SerializationType.JSON;
      this.reliable = !!this.options.reliable;
- 
-     if (this.options._payload) {
+
+     this._encodingQueue.on('done', (ab: ArrayBuffer) => {
 diff --git a/lib/exports.ts b/lib/exports.ts
-index 5772d02..07fc457 100644
+index 5772d02..63a57e3 100644
 --- a/lib/exports.ts
 +++ b/lib/exports.ts
-@@ -8,6 +8,3 @@ export const peerjs = {
- 
+@@ -7,7 +7,3 @@ export const peerjs = {
+ };
+
  export default Peer;
- 
+-
 -(<any>window).peerjs = peerjs;
 -/** @deprecated Should use peerjs namespace */
 -(<any>window).Peer = Peer;
+diff --git a/lib/negotiator.ts b/lib/negotiator.ts
+index e2b3df9..c48efa3 100644
+--- a/lib/negotiator.ts
++++ b/lib/negotiator.ts
+@@ -142,10 +142,11 @@ export class Negotiator {
+     // MEDIACONNECTION.
+     logger.log("Listening for remote stream");
+
+-    peerConnection.ontrack = (evt) => {
+-      logger.log("Received remote stream");
++    // react-native-webrtc implements the old API.
++    peerConnection.onaddstream = (evt) => {
++      logger.log("Received remote stream", evt);
+
+-      const stream = evt.streams[0];
++      const stream = evt.stream;
+       const connection = provider.getConnection(peerId, connectionId);
+
+       if (connection.type === ConnectionType.Media) {
+@@ -168,7 +169,7 @@ export class Negotiator {
+     this.connection.peerConnection = null;
+
+     //unsubscribe from all PeerConnection's events
+-    peerConnection.onicecandidate = peerConnection.oniceconnectionstatechange = peerConnection.ondatachannel = peerConnection.ontrack = () => { };
++    peerConnection.onicecandidate = peerConnection.oniceconnectionstatechange = peerConnection.ondatachannel = peerConnection.onaddstream = () => { };
+
+     const peerConnectionNotClosed = peerConnection.signalingState !== "closed";
+     let dataChannelNotClosed = false;
+@@ -340,15 +341,14 @@ export class Negotiator {
+   ): void {
+     logger.log(`add tracks from stream ${stream.id} to peer connection`);
+
+-    if (!peerConnection.addTrack) {
++    // react-native-webrtc implements the old API.
++    if (!peerConnection.addStream) {
+       return logger.error(
+-        `Your browser does't support RTCPeerConnection#addTrack. Ignored.`
++        `Your browser does't support RTCPeerConnection#addStream. Ignored.`
+       );
+     }
+
+-    stream.getTracks().forEach(track => {
+-      peerConnection.addTrack(track, stream);
+-    });
++    peerConnection.addStream(stream);
+   }
+
+   private _addStreamToMediaConnection(
 diff --git a/lib/peer.ts b/lib/peer.ts
-index 66a3412..78ac6cf 100644
+index 8f11659..1af0753 100644
 --- a/lib/peer.ts
 +++ b/lib/peer.ts
 @@ -111,11 +111,6 @@ export class Peer extends EventEmitter {
      };
      this._options = options;
- 
+
 -    // Detect relative URL host.
 -    if (this._options.host === "/") {
 -      this._options.host = window.location.hostname;
@@ -39,7 +88,7 @@ index 66a3412..78ac6cf 100644
      if (this._options.path) {
        if (this._options.path[0] !== "/") {
 diff --git a/lib/supports.ts b/lib/supports.ts
-index 1801188..8bb163e 100644
+index 1801188..db1dc70 100644
 --- a/lib/supports.ts
 +++ b/lib/supports.ts
 @@ -1,5 +1,3 @@
@@ -50,17 +99,17 @@ index 1801188..8bb163e 100644
    readonly supportedBrowsers = ['firefox', 'chrome', 'safari'];
 @@ -28,36 +26,15 @@ export const Supports = new class {
    }
- 
+
    getBrowser(): string {
 -    return webRTCAdapter.browserDetails.browser;
 +    return 'chrome';
    }
- 
+
    getVersion(): number {
 -    return webRTCAdapter.browserDetails.version || 0;
 +    return this.minChromeVersion;
    }
- 
+
    isUnifiedPlanSupported(): boolean {
 -    const browser = this.getBrowser();
 -    const version = webRTCAdapter.browserDetails.version || 0;
@@ -86,5 +135,5 @@ index 1801188..8bb163e 100644
 -    return supported;
 +    return false;
    }
- 
+
    toString(): string {
